@@ -9,7 +9,7 @@ Servidor de registro y descubrimiento de servicios para el proyecto **duoc-music
 - [Eureka Server](#eureka-server)
   - [Tabla de contenidos](#tabla-de-contenidos)
   - [Estructura del módulo](#estructura-del-módulo)
-  - [Dependencias Maven](#dependencias-maven)
+  - [Dependencias](#dependencias)
   - [Configuración](#configuración)
   - [Clase principal](#clase-principal)
   - [Ejecutar en local](#ejecutar-en-local)
@@ -37,7 +37,7 @@ eureka-server/
 └── pom.xml
 ```
 
-## Dependencias Maven
+## Dependencias
 
 El `eureka-server` necesita solo dos dependencias:
 
