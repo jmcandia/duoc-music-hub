@@ -1,6 +1,6 @@
 # Eureka Server
 
-Servidor de registro y descubrimiento de servicios para el proyecto **biblioteca-duoc**. Todos los microservicios y el API Gateway se registran aquí al arrancar, y lo consultan para encontrarse entre sí sin necesidad de URLs hardcodeadas.
+Servidor de registro y descubrimiento de servicios para el proyecto **duoc-music-hub**. Todos los microservicios y el API Gateway se registran aquí al arrancar, y lo consultan para encontrarse entre sí sin necesidad de URLs hardcodeadas.
 
 ---
 
