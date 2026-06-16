@@ -77,6 +77,25 @@ Un **Eureka Server** es un componente de registro y descubrimiento de servicios 
 - **Descubrimiento:** Permite a un microservicio preguntar al servidor dónde encontrar a otro servicio con el que necesita comunicarse.
 - **Salud y Resiliencia:** Los clientes envían señales periódicas (latidos o *heartbeats*). Si una instancia falla, el servidor la elimina del registro para evitar errores de conexión.
 
+**El ciclo de vida de un servicio en Eureka:**
+
+En **Eureka**, el ciclo de vida de un microservicio es gestionado automáticamente para mantener un mapa de red coherente. El proceso comprende 4 etapas clave en su interacción con el servidor central:
+
+1. **Registro (Registration):** Cuando un microservicio (como cliente Eureka) se levanta, se conecta a la URL del servidor Eureka (por defecto <http://localhost:8761/eureka>). En este paso, el servicio proporciona su identificador único (*Application Name*), dirección IP, puerto y estado (*UP*). A partir de este momento, está disponible para recibir peticiones de otros microservicios.
+2. **Renovación (Renewals):** Para garantizar que el registro esté actualizado, el cliente envía un "latido" (*heartbeat*) al servidor cada 30 segundos. Esto le indica a Eureka que el servicio se encuentra en buen estado (*healthy*) y capaz de procesar peticiones. Si falla el envío de este latido, su estado puede cambiar.
+3. **Expiración y Evicción (Eviction):** Eureka Server implementa un mecanismo a prueba de fallos. Si un microservicio se cae de manera abrupta (por ejemplo, un fallo de red o un apagado imprevisto) y deja de enviar sus latidos de renovación, el servidor Eureka lo considera fuera de servicio. El servidor cuenta con un umbral para proteger los servicios activos conocido como autopreservación; si se pierden demasiados latidos inesperadamente, Eureka retiene el registro por seguridad en lugar de eliminarlo de golpe.
+4. **Baja (Cancellation):** Cuando un microservicio se apaga de forma controlada (por ejemplo, un cierre elegante o *graceful shutdown*), ejecuta un proceso de cancelación. El cliente envía una petición explícita de baja (*DELETE*) al servidor Eureka. El servidor lo elimina inmediatamente del registro de servicios activos para que ningún otro cliente intente comunicarse con una instancia inactiva.
+
+**Conceptos importantes:**
+
+| Concepto                   | Descripción                                                                                                            |
+|:---------------------------|:-----------------------------------------------------------------------------------------------------------------------|
+| **Eureka Server**          | El servidor central que mantiene el registro de todos los servicios.                                                   |
+| **Eureka Client**          | Cualquier microservicio que se registra en el servidor.                                                                |
+| **Registry**               | El mapa en memoria: `nombre-servicio → [instancia1, instancia2, ...]`.                                                 |
+| **Heartbeat**              | Señal periódica (30s) que el cliente envía para indicar que sigue activo.                                              |
+| **Self-preservation mode** | Modo de seguridad: si muchos clientes dejan de enviar heartbeats, Eureka asume un problema de red y no los da de baja. |
+
 ### API Gateway
 
 Punto de entrada único para todos los clientes externos. Recibe las peticiones, las enruta al microservicio correspondiente (consultando Eureka) y puede aplicar filtros transversales como autenticación, rate limiting, CORS o logging. En este proyecto se usa **Spring Cloud Gateway**.
