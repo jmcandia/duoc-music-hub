@@ -1,19 +1,77 @@
 services:
-  eureka-server:
+  mysql:
+    image: mysql:8.4.9-oraclelinux9
+    environment:
+      - MYSQL_USER=${DATABASE_USERNAME}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USERNAME}", "-p${DATABASE_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - subnet
+  
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD", "loki", "-version"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - subnet
+  
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - subnet
+
+  eureka:
     build: ./eureka-server
-    container_name: eureka-server
     ports:
       - "8761:8761"
     environment:
-      - EUREKA_HOST=eureka-server
+      - EUREKA_HOST=${EUREKA_HOST}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 5
     networks:
-      - duoc-music-hub-net
+      - subnet
+
+volumes:
+  mysql-data:
+  loki-data:
+  grafana-data:
 
 networks:
-  duoc-music-hub-net:
+  subnet:
     driver: bridge

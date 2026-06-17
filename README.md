@@ -17,6 +17,7 @@
     - [Docker y Docker Compose](#docker-y-docker-compose)
       - [¿Qué es Docker?](#qué-es-docker)
       - [¿Qué es Docker Compose?](#qué-es-docker-compose)
+    - [Variables de entorno](#variables-de-entorno)
   - [Requisitos previos](#requisitos-previos)
   - [Acerca del proyecto](#acerca-del-proyecto)
     - [Arquitectura](#arquitectura)
@@ -256,6 +257,31 @@ En proyectos reales, una aplicación suele estar compuesta por varios servicios,
 | Permite crear y ejecutar contenedores   | Permite coordinar varios servicios simultáneamente                     |
 | Se utiliza para empaquetar aplicaciones | Se utiliza para orquestar aplicaciones compuestas por varios servicios |
 
+### Variables de entorno
+
+Una variable de entorno es un valor dinámico almacenado en el sistema operativo (o entorno de ejecución) que indica a los programas cómo deben comportarse o dónde encontrar ciertos recursos. Son fundamentales para configurar aplicaciones y proteger datos sensibles sin modificar el código fuente.
+
+**¿Para qué sirven?**
+
+- **Configuración:** Permiten que un mismo programa se adapte según el entorno donde se ejecuta (por ejemplo, conectarse a una base de datos local en tu PC y a una base de datos de producción en el servidor).
+- **Seguridad:** Se utilizan para ocultar información confidencial (como claves API, contraseñas o tokens) evitando que se suban a repositorios públicos de código.
+- **Rutas del sistema:** Ayudan al sistema operativo a saber dónde ubicar los archivos temporales, el editor de texto predeterminado o los programas ejecutables (como la variable global PATH).
+
+**Tipos comunes:**
+
+Encontrarás diferentes tipos de variables según el contexto:
+
+- **Del Sistema/Usuario:** Configuran aspectos del sistema operativo (idioma, ruta a la carpeta de usuario, etc.).
+- **De Aplicación:** Son definidas específicamente para un programa web o servicio (por ejemplo, el puerto en el que corre el servidor, la URL de una API).
+
+**¿Cómo se usan?**
+
+- **En desarrollo local:** Por lo general, se guardan en un archivo de texto plano llamado `.env` en la raíz de tu proyecto.
+- **En producción:** En lugar de archivos `.env`, los servicios de alojamiento (como **Vercel**, **AWS** o plataformas similares) tienen interfaces nativas para configurar estas variables de forma segura.
+
+> [!TIP]
+> Los nombres de las variables de entorno se escriben tradicionalmente en **MAYÚSCULAS** y separando palabras con guiones bajos (ej. `DATABASE_URL`).
+
 ## Requisitos previos
 
 Antes de comenzar, asegúrate de tener instalado:
@@ -364,12 +390,104 @@ duoc-music-hub/
 
 Para construir este ecosistema de forma exitosa, seguiremos este orden lógico de desarrollo:
 
-1. **Fase 1: Infraestructura Base (Eureka Server):** Crear el servidor de descubrimiento para que la red exista.
-2. **Fase 2: Servicios de Negocio (Catalog, User & History):** Desarrollar la lógica, persistencia en MySQL, hipermedios (HATEOAS) y la comunicación síncrona mediante `WebClient`.
-3. **Fase 3: Pruebas Unitarias y de Integración:** Asegurar la calidad del código usando Mockito y MockWebServer antes de desplegar.
-4. **Fase 4: Puerta de Entrada (API Gateway):** Exponer los servicios a través de una ruta única y centralizada.
-5. **Fase 5: Contenerización y Orquestación (Docker):** Crear los `Dockerfile` y unificar todo el ecosistema (incluyendo MySQL, Loki y Grafana) en un archivo `compose.ya ml`.
-6. **Fase 6: Observabilidad Extrema:** Configurar el datasource de Loki en Grafana para buscar trazas distribuidas.
+1. **Fase 1: Infraestructura Base (MySQL, Loki & Grafana):** Crear los servidores de base de datos y observabilidad.
+
+   - Renombrar el archivo `.env.example` por `.env` y completar la siguiente información:
+
+     ```env
+     DATABASE_USERNAME=<usuario_base_datos>
+     DATABASE_PASSWORD=<contraseña_base_datos>
+     DATABASE_ROOT_PASSWORD=<contraseña_superusuario>
+
+     EUREKA_HOST=<servidor_eureka>
+
+     GRAFANA_ADMIN_USER=<usuario_grafana>
+     GRAFANA_ADMIN_PASSWORD=<contraseña_grafana>
+     ```
+
+     > [!IMPORTANT]
+     > Los valores `<usuario_base_datos>` y `<contraseña_base_datos>` corresponden al usuario de bases de datos a crear para no dar acceso de `root`. El valor de `<contraseña_superusuario>` corresponde a la contraseña del usuario `root` de la base de datos. El valor `<servidor_eureka>` debe ser reemplazado con el nombre del servidor Eureka; en este caso, se debe mantener el nombre del servicio declarado en el archivo `compose.yaml` (por ejemplo, `eureka`). Los valores `<usuario_grafana>` y `<contraseña_grafana>` corresponden al usuario administrador del servidor Grafana y su contraseña, respectivamente.
+
+   - Crear el archivo `compose.yaml` en la raíz del proyecto:
+
+     ```yaml
+     services:
+       # Declaración del servidor de base de datos
+       mysql:
+         image: mysql:8.4.9-oraclelinux9
+         environment:
+           - MYSQL_USER=${DATABASE_USERNAME}
+           - MYSQL_PASSWORD=${DATABASE_PASSWORD}
+           - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
+         ports:
+           - "3306:3306"
+         volumes:
+           - mysql-data:/var/lib/mysql
+           - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+         healthcheck:
+           test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USERNAME}", "-p${DATABASE_PASSWORD}"]
+           interval: 10s
+           timeout: 5s
+           retries: 5
+         networks:
+           - subnet
+
+       # Declaración del servidor Loki
+       loki:
+         image: grafana/loki:latest
+         ports:
+           - "3100:3100"
+         command: -config.file=/etc/loki/local-config.yaml
+         volumes:
+           - loki-data:/loki
+         healthcheck:
+           test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+           interval: 15s
+           timeout: 5s
+           retries: 5
+         networks:
+           - subnet
+       
+       # Declaración del servidor Grafana
+       grafana:
+         image: grafana/grafana:latest
+         ports:
+           - "3000:3000"
+         environment:
+           - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+           - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+         volumes:
+           - grafana-data:/var/lib/grafana
+         depends_on:
+           loki:
+             condition: service_healthy
+         healthcheck:
+           test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+           interval: 15s
+           timeout: 5s
+           retries: 5
+         networks:
+           - subnet
+
+     # Declaración de los volúmenes
+     volumes:
+       mysql-data:
+       loki-data:
+       grafana-data:
+
+     # Declaración de las redes
+     networks:
+       subnet:
+         driver: bridge
+     ```
+
+   - Configurar el datasource de Loki en Grafana para buscar trazas distribuidas.
+
+2. **Fase 2: Infraestructura Base (Eureka Server):** Crear el servidor de descubrimiento para que la red exista.
+3. **Fase 3: Servicios de Negocio (Catalog, User & History):** Desarrollar la lógica, persistencia en MySQL, hipermedios (HATEOAS) y la comunicación síncrona mediante `WebClient`.
+4. **Fase 4: Pruebas Unitarias y de Integración:** Asegurar la calidad del código usando Mockito y MockWebServer antes de desplegar.
+5. **Fase 5: Puerta de Entrada (API Gateway):** Exponer los servicios a través de una ruta única y centralizada.
+6. **Fase 6: Contenerización y Orquestación (Docker):** Crear los `Dockerfile` para cada servicio y unificar todo el ecosistema en el archivo `compose.yaml` generado al principio.
 
 ### Ejecución con Docker Compose
 
@@ -392,7 +510,7 @@ docker compose up --build
 docker compose up -d <nombre_del_servicio>
 ```
 
-Esto levantará los servicios en el siguiente orden: `eureka-server` → `loki` → `grafana` → `mysql` → `user-service` → `catalog-service` → `history-service` → `api-gateway`.
+Esto levantará los servicios en el siguiente orden: `mysql` → `loki` → `grafana` → `eureka-server` → `user-service` → `catalog-service` → `history-service` → `api-gateway`.
 
 > [!IMPORTANT]
 > La primera vez que se levanta el entorno, puede tardar unos minutos en que descargue las imágenes de Docker correspondientes. Luego, los servicios se levantaran en el orden descrito.
