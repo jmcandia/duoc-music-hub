@@ -395,18 +395,17 @@ Para construir este ecosistema de forma exitosa, seguiremos este orden lógico d
    - Renombrar el archivo `.env.example` por `.env` y completar la siguiente información:
 
      ```env
-     DATABASE_USERNAME=<usuario_base_datos>
-     DATABASE_PASSWORD=<contraseña_base_datos>
      DATABASE_ROOT_PASSWORD=<contraseña_superusuario>
 
      EUREKA_HOST=<servidor_eureka>
+     EUREKA_SERVER_URL=<url_servidor_eureka>
 
      GRAFANA_ADMIN_USER=<usuario_grafana>
      GRAFANA_ADMIN_PASSWORD=<contraseña_grafana>
      ```
 
      > [!IMPORTANT]
-     > Los valores `<usuario_base_datos>` y `<contraseña_base_datos>` corresponden al usuario de bases de datos a crear para no dar acceso de `root`. El valor de `<contraseña_superusuario>` corresponde a la contraseña del usuario `root` de la base de datos. El valor `<servidor_eureka>` debe ser reemplazado con el nombre del servidor Eureka; en este caso, se debe mantener el nombre del servicio declarado en el archivo `compose.yaml` (por ejemplo, `eureka`). Los valores `<usuario_grafana>` y `<contraseña_grafana>` corresponden al usuario administrador del servidor Grafana y su contraseña, respectivamente.
+     > El valor de `<contraseña_superusuario>` corresponde a la contraseña del usuario `root` de la base de datos. El valor `<servidor_eureka>` debe ser reemplazado con el nombre del servidor Eureka y `<url_servidor_eureka>`, con la URL completa de servidor; en este caso, se debe mantener el nombre del servicio declarado en el archivo `compose.yaml` (por ejemplo, `eureka`). Los valores `<usuario_grafana>` y `<contraseña_grafana>` corresponden al usuario administrador del servidor Grafana y su contraseña, respectivamente.
 
    - Crear el archivo `compose.yaml` en la raíz del proyecto:
 
@@ -416,8 +415,6 @@ Para construir este ecosistema de forma exitosa, seguiremos este orden lógico d
        mysql:
          image: mysql:8.4.9-oraclelinux9
          environment:
-           - MYSQL_USER=${DATABASE_USERNAME}
-           - MYSQL_PASSWORD=${DATABASE_PASSWORD}
            - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
          ports:
            - "3306:3306"
@@ -425,7 +422,7 @@ Para construir este ecosistema de forma exitosa, seguiremos este orden lógico d
            - mysql-data:/var/lib/mysql
            - ./init.sql:/docker-entrypoint-initdb.d/init.sql
          healthcheck:
-           test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USERNAME}", "-p${DATABASE_PASSWORD}"]
+           test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DATABASE_ROOT_PASSWORD}"]
            interval: 10s
            timeout: 5s
            retries: 5
