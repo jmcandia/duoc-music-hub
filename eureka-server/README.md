@@ -19,7 +19,7 @@ Servidor de registro y descubrimiento de servicios para el proyecto **duoc-music
     - [Endpoint del registro (API REST interna)](#endpoint-del-registro-api-rest-interna)
   - [Dockerización](#dockerización)
     - [Dockerfile](#dockerfile)
-    - [Fragmento en compose.yaml](#fragmento-en-composeyaml)
+    - [Fragmento en `compose.yaml`](#fragmento-en-composeyaml)
   - [Preguntas frecuentes](#preguntas-frecuentes)
 
 ## Estructura del módulo
@@ -201,27 +201,26 @@ EXPOSE 8761
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
-### Fragmento en compose.yaml
+### Fragmento en `compose.yaml`
 
 ```yaml
-eureka-server:
+eureka:
   build: ./eureka-server
-  container_name: eureka-server
   ports:
     - "8761:8761"
   environment:
-    - EUREKA_HOST=eureka-server
+    - EUREKA_HOST=${EUREKA_HOST}
   healthcheck:
     test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
     interval: 15s
     timeout: 5s
     retries: 5
   networks:
-    - duoc-music-hub-net
+    - subnet
 ```
 
 > [!NOTE]
-> Los demás servicios declararán `depends_on: eureka-server` con `condition: service_healthy` para garantizar que Eureka esté disponible antes de intentar registrarse.
+> Los demás servicios declararán `depends_on: eureka` con `condition: service_healthy` para garantizar que Eureka esté disponible antes de intentar registrarse.
 
 ## Preguntas frecuentes
 
