@@ -2,8 +2,6 @@ services:
   mysql:
     image: mysql:8.4.9-oraclelinux9
     environment:
-      - MYSQL_USER=${DATABASE_USERNAME}
-      - MYSQL_PASSWORD=${DATABASE_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
     ports:
       - "3306:3306"
@@ -11,13 +9,23 @@ services:
       - mysql-data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USERNAME}", "-p${DATABASE_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DATABASE_ROOT_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - subnet
-  
+
   loki:
     image: grafana/loki:latest
     ports:
@@ -32,7 +40,7 @@ services:
       retries: 5
     networks:
       - subnet
-  
+
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -64,6 +72,28 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      - subnet
+
+  user:
+    build: ./user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/user_db?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${DATABASE_ROOT_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=${EUREKA_SERVER_URL}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      eureka:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
     networks:
       - subnet
 

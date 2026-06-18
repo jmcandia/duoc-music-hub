@@ -438,7 +438,7 @@ Para construir este ecosistema de forma exitosa, seguiremos este orden lógico d
          volumes:
            - loki-data:/loki
          healthcheck:
-           test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+           test: ["CMD", "loki", "-version"]
            interval: 15s
            timeout: 5s
            retries: 5
